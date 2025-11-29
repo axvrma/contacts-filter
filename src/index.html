@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8" />
+        <title>Contacts by Suffix</title>
+        <style>
+            body {
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                margin: 2rem;
+                background: #f6f6f6;
+            }
+
+            h1 {
+                margin-bottom: 0.5rem;
+            }
+
+            .file-input {
+                margin-bottom: 1rem;
+            }
+
+            #summary {
+                margin: 0.5rem 0 1rem;
+                font-size: 0.9rem;
+                color: #555;
+            }
+
+            details {
+                margin-bottom: 0.5rem;
+                background: #fff;
+                border-radius: 6px;
+                padding: 0.5rem 0.75rem;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            summary {
+                cursor: pointer;
+                font-weight: 600;
+            }
+
+            ul {
+                margin: 0.5rem 0 0.25rem 1.25rem;
+                padding: 0;
+                list-style: disc;
+            }
+
+            li {
+                margin: 0.1rem 0;
+                font-size: 0.9rem;
+            }
+
+            .badge {
+                display: inline-block;
+                background: #eee;
+                border-radius: 999px;
+                padding: 0.1rem 0.6rem;
+                font-size: 0.8rem;
+                margin-left: 0.5rem;
+                color: #555;
+            }
+
+            .no-suffix {
+                color: #b33;
+            }
+
+        </style>
+    </head>
+
+    <body>
+        <h1>Contacts grouped by suffix</h1>
+        <div class="file-input">
+            <input type="file" id="fileInput" accept=".vcf" />
+        </div>
+        <div id="summary"></div>
+        <div id="accordion"></div>
+
+        <script>
+            const fileInput = document.getElementById("fileInput");
+            const summaryEl = document.getElementById("summary");
+            const accordionEl = document.getElementById("accordion");
+
+            fileInput.addEventListener("change", async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const text = await file.text();
+                const cards = parseVcf(text);          // [{ name, suffix, raw }]
+                const groups = groupBySuffix(cards);   // Map<suffix, [cards]>
+                renderAccordion(groups, cards.length);
+            });
+
+            // --- Minimal VCF parser (just FN + N suffix) ---
+
+            function parseVcf (text) {
+                const blocks = text
+                    .split(/END:VCARD/i)
+                    .map(b => b.trim())
+                    .filter(b => /BEGIN:VCARD/i.test(b));
+
+                const cards = [];
+
+                for (const block of blocks) {
+                    const fullBlock = block + "\nEND:VCARD\n";
+                    const lines = fullBlock.split(/\r?\n/);
+
+                    let name = "";
+                    let suffix = "";
+
+                    for (const line of lines) {
+                        // FN: full name
+                        if (/^FN[:;]/i.test(line)) {
+                            const fnValue = line.split(":").slice(1).join(":").trim();
+                            name = fnValue || "(No Name)";
+                        }
+
+                        // N: Last;First;Middle;Prefix;Suffix
+                        if (/^N[:;]/i.test(line)) {
+                            const value = line.split(":").slice(1).join(":");
+                            const parts = value.split(";");
+                            if (parts.length >= 5) {
+                                suffix = (parts[4] || "").trim();
+                            }
+                        }
+                    }
+
+                    cards.push({
+                        name: name || "(No Name)",
+                        suffix: suffix || "",
+                        raw: fullBlock
+                    });
+                }
+
+                return cards;
+            }
+
+            function groupBySuffix (cards) {
+                const groups = new Map();
+
+                for (const card of cards) {
+                    const key = card.suffix || "No Suffix";
+                    if (!groups.has(key)) {
+                        groups.set(key, []);
+                    }
+                    groups.get(key).push(card);
+                }
+
+                // Sort suffix keys by count desc, then name asc
+                const sortedEntries = Array.from(groups.entries()).sort((a, b) => {
+                    const countDiff = b[1].length - a[1].length;
+                    if (countDiff !== 0) return countDiff;
+                    return a[0].localeCompare(b[0]);
+                });
+
+                return new Map(sortedEntries);
+            }
+
+            function renderAccordion (groups, totalCount) {
+                accordionEl.innerHTML = "";
+
+                let uniqueSuffixes = groups.size;
+                const noSuffixCount = groups.get("No Suffix")?.length || 0;
+
+                summaryEl.textContent =
+                    `Total contacts: ${totalCount} · ` +
+                    `Unique suffixes: ${uniqueSuffixes} · ` +
+                    `Without suffix: ${noSuffixCount}`;
+
+                for (const [suffix, cards] of groups.entries()) {
+                    const details = document.createElement("details");
+                    const summary = document.createElement("summary");
+
+                    const label = suffix === "No Suffix" ? "No Suffix" : suffix;
+                    summary.textContent = label + " ";
+
+                    const badge = document.createElement("span");
+                    badge.className = "badge" + (suffix === "No Suffix" ? " no-suffix" : "");
+                    badge.textContent = cards.length;
+                    summary.appendChild(badge);
+
+                    const list = document.createElement("ul");
+                    const sortedCards = [...cards].sort((a, b) =>
+                        a.name.localeCompare(b.name)
+                    );
+
+                    for (const card of sortedCards) {
+                        const li = document.createElement("li");
+                        li.textContent = card.name;
+                        list.appendChild(li);
+                    }
+
+                    details.appendChild(summary);
+                    details.appendChild(list);
+
+                    accordionEl.appendChild(details);
+                }
+            }
+        </script>
+    </body>
+
+</html>
