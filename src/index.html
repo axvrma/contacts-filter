@@ -17,19 +17,34 @@
 
             .controls {
                 display: flex;
+                flex-wrap: wrap;
                 align-items: center;
-                gap: 1rem;
-                margin-bottom: 1rem;
+                gap: 0.75rem;
+                margin-bottom: 0.75rem;
+            }
+
+            input[type="file"] {
+                font-size: 0.9rem;
+            }
+
+            #searchInput {
+                flex: 1;
+                min-width: 200px;
+                padding: 0.4rem 0.6rem;
+                border-radius: 6px;
+                border: 1px solid #ccc;
+                font-size: 0.9rem;
             }
 
             button {
                 background: #0078ff;
                 border: none;
                 color: white;
-                padding: 3px 10px;
+                padding: 0.5rem 1rem;
                 border-radius: 6px;
                 cursor: pointer;
                 font-size: 0.9rem;
+                white-space: nowrap;
             }
 
             button:active {
@@ -80,6 +95,11 @@
                 color: #b33;
             }
 
+            .muted {
+                color: #777;
+                font-size: 0.85rem;
+            }
+
         </style>
     </head>
 
@@ -88,40 +108,73 @@
 
         <div class="controls">
             <input type="file" id="fileInput" accept=".vcf" />
-            <button id="toggleSort">Sort by Count</button>
+            <input type="text" id="searchInput" placeholder="Search name, suffix, email, phone, etc." disabled />
+            <button id="toggleSort" disabled>Sort by Count</button>
         </div>
 
-        <div id="summary"></div>
+        <div id="summary" class="muted">Load a .vcf file to begin.</div>
         <div id="accordion"></div>
 
         <script>
             let cardsGlobal = [];
-            let sortMode = "count";
-            // other option: "alphabetical"
+            let sortMode = "count"; // "count" | "alphabetical"
+            let searchQuery = "";
 
-            document.getElementById("toggleSort").addEventListener("click", () => {
-                sortMode = sortMode === "count" ? "alphabetical" : "count";
-                renderAccordion(groupBySuffix(cardsGlobal), cardsGlobal.length);
+            const fileInput = document.getElementById("fileInput");
+            const searchInput = document.getElementById("searchInput");
+            const toggleSortBtn = document.getElementById("toggleSort");
+            const summaryEl = document.getElementById("summary");
+            const accordionEl = document.getElementById("accordion");
 
-                document.getElementById("toggleSort").textContent =
-                    sortMode === "count" ? "Sort Alphabetically" : "Sort by Count";
-            });
-
-            document.getElementById("fileInput").addEventListener("change", async (event) => {
+            fileInput.addEventListener("change", async (event) => {
                 const file = event.target.files[0];
                 if (!file) return;
 
                 const text = await file.text();
                 cardsGlobal = parseVcf(text);
 
-                renderAccordion(groupBySuffix(cardsGlobal), cardsGlobal.length);
+                // Enable controls now that data exists
+                searchInput.disabled = false;
+                toggleSortBtn.disabled = false;
+
+                searchQuery = "";
+                searchInput.value = "";
+
+                updateView();
             });
+
+            toggleSortBtn.addEventListener("click", () => {
+                sortMode = sortMode === "count" ? "alphabetical" : "count";
+                toggleSortBtn.textContent =
+                    sortMode === "count" ? "Sort Alphabetically" : "Sort by Count";
+                updateView();
+            });
+
+            searchInput.addEventListener("input", (e) => {
+                searchQuery = e.target.value.trim().toLowerCase();
+                updateView();
+            });
+
+            function updateView () {
+                if (!cardsGlobal.length) {
+                    accordionEl.innerHTML = "";
+                    summaryEl.textContent = "No contacts loaded.";
+                    return;
+                }
+
+                const filtered = filterCards(cardsGlobal, searchQuery);
+                const groups = groupBySuffix(filtered);
+
+                renderAccordion(groups, cardsGlobal.length, filtered.length, searchQuery);
+            }
+
+            // --- Minimal VCF parser (FN + N suffix + raw) ---
 
             function parseVcf (text) {
                 const blocks = text
                     .split(/END:VCARD/i)
-                    .map(b => b.trim())
-                    .filter(b => /BEGIN:VCARD/i.test(b));
+                    .map((b) => b.trim())
+                    .filter((b) => /BEGIN:VCARD/i.test(b));
 
                 const cards = [];
 
@@ -133,23 +186,48 @@
                     let suffix = "";
 
                     for (const line of lines) {
+                        // FN: full name
                         if (/^FN[:;]/i.test(line)) {
                             const fnValue = line.split(":").slice(1).join(":").trim();
                             name = fnValue || "(No Name)";
                         }
 
+                        // N: Last;First;Middle;Prefix;Suffix
                         if (/^N[:;]/i.test(line)) {
                             const value = line.split(":").slice(1).join(":");
                             const parts = value.split(";");
-                            if (parts.length >= 5) suffix = (parts[4] || "").trim();
+                            if (parts.length >= 5) {
+                                suffix = (parts[4] || "").trim();
+                            }
                         }
                     }
 
-                    cards.push({ name, suffix, raw: fullBlock });
+                    cards.push({
+                        name: name || "(No Name)",
+                        suffix: suffix || "",
+                        raw: fullBlock,
+                        rawLower: fullBlock.toLowerCase(),
+                    });
                 }
 
                 return cards;
             }
+
+            // --- Filter by search query (name, suffix, any raw data) ---
+
+            function filterCards (cards, query) {
+                if (!query) return cards;
+
+                return cards.filter((card) => {
+                    const nameMatch = card.name.toLowerCase().includes(query);
+                    const suffixMatch = (card.suffix || "").toLowerCase().includes(query);
+                    const rawMatch = card.rawLower.includes(query); // matches email, phone, etc.
+
+                    return nameMatch || suffixMatch || rawMatch;
+                });
+            }
+
+            // --- Group by suffix and sort according to sortMode ---
 
             function groupBySuffix (cards) {
                 const groups = new Map();
@@ -174,15 +252,22 @@
                 return new Map(entries);
             }
 
-            function renderAccordion (groups, totalCount) {
-                const accordionEl = document.getElementById("accordion");
+            // --- Render accordions ---
+
+            function renderAccordion (groups, totalCount, filteredCount, query) {
                 accordionEl.innerHTML = "";
 
-                const noSuffix = groups.get("No Suffix")?.length || 0;
-                document.getElementById("summary").textContent =
-                    `Total contacts: ${totalCount} · ` +
-                    `Groups: ${groups.size} · ` +
-                    `Without suffix: ${noSuffix}`;
+                const noSuffixCount = groups.get("No Suffix")?.length || 0;
+
+                let summaryText =
+                    `Total contacts: ${totalCount} · Showing: ${filteredCount} · ` +
+                    `Groups: ${groups.size} · Without suffix (visible): ${noSuffixCount}`;
+
+                if (query) {
+                    summaryText += ` · Filter: "${query}"`;
+                }
+
+                summaryEl.textContent = summaryText;
 
                 for (const [suffix, cards] of groups.entries()) {
                     const details = document.createElement("details");
@@ -195,9 +280,11 @@
                     summary.appendChild(badge);
 
                     const list = document.createElement("ul");
-                    const sorted = [...cards].sort((a, b) => a.name.localeCompare(b.name));
+                    const sortedCards = [...cards].sort((a, b) =>
+                        a.name.localeCompare(b.name)
+                    );
 
-                    sorted.forEach(card => {
+                    sortedCards.forEach((card) => {
                         const li = document.createElement("li");
                         li.textContent = card.name;
                         list.appendChild(li);
