@@ -14,6 +14,8 @@ function parseVcf(text) {
 
         let name = "";
         let suffix = "";
+        let phones = [];
+        let emails = [];
 
         for (const line of lines) {
             // FN: full name
@@ -30,11 +32,78 @@ function parseVcf(text) {
                     suffix = (parts[4] || "").trim();
                 }
             }
+            
+            // Mapped item labels for Apple/Google custom VCF tags
+            const itemLabels = {};
+            for (const line of lines) {
+                const match = line.match(/^(item\d+)\.X-ABLabel:(.*)/i);
+                if (match) {
+                    itemLabels[match[1].toLowerCase()] = match[2].trim();
+                }
+            }
+            
+            // Utility to extract [labels] from the left side parameters of a VCF prop
+            const extractLabels = (paramsStr) => {
+                if (!paramsStr) return "";
+                const parts = paramsStr.split(";").filter(p => p.trim());
+                let labels = parts.map(p => {
+                    if(p.toUpperCase().startsWith("TYPE=")) {
+                        return p.substring(5).split(',').join(' ');
+                    }
+                    if(p.toUpperCase().startsWith("VALUE=")) return null;
+                    return p;
+                }).filter(Boolean);
+                
+                labels = labels.filter(l => !['PREF', 'INTERNET', 'VOICE'].includes(l.toUpperCase()));
+                let joined = labels.join(" ").toLowerCase();
+                return joined ? `[${joined}] ` : "";
+            };
+
+            // TEL
+            const telMatch = line.match(/^(?:(item\d+)\.)?TEL([^:]*):(.*)/i);
+            if (telMatch) {
+                const itemGroup = telMatch[1] ? telMatch[1].toLowerCase() : null;
+                const params = telMatch[2];
+                const value = telMatch[3].trim();
+                
+                let labelStr = "";
+                if (itemGroup && itemLabels[itemGroup]) {
+                    labelStr = `[${itemLabels[itemGroup].toLowerCase()}] `;
+                } else {
+                    labelStr = extractLabels(params);
+                }
+                
+                if (value && !phones.includes(labelStr + value)) {
+                    phones.push(labelStr + value);
+                }
+            }
+            
+            // EMAIL
+            const emailMatch = line.match(/^(?:(item\d+)\.)?EMAIL([^:]*):(.*)/i);
+            if (emailMatch) {
+                const itemGroup = emailMatch[1] ? emailMatch[1].toLowerCase() : null;
+                const params = emailMatch[2];
+                const value = emailMatch[3].trim().toLowerCase();
+                
+                let labelStr = "";
+                if (itemGroup && itemLabels[itemGroup]) {
+                    labelStr = `[${itemLabels[itemGroup].toLowerCase()}] `;
+                } else {
+                    labelStr = extractLabels(params);
+                }
+                
+                const finalRecord = labelStr + value;
+                if (value && !emails.includes(finalRecord)) {
+                    emails.push(finalRecord);
+                }
+            }
         }
 
         cards.push({
             name: name || "(No Name)",
             suffix: suffix || "",
+            phones: phones,
+            emails: emails,
             raw: fullBlock,
             rawLower: fullBlock.toLowerCase(),
         });

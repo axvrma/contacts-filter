@@ -225,10 +225,48 @@ function renderAccordion(groups, totalCount, filteredCount, query) {
             const li = document.createElement("li");
             li.className = "list-item";
 
-            const nameSpan = document.createElement("span");
+            const nameContainer = document.createElement("div");
+            nameContainer.className = "contact-name-container";
+            
+            const nameWrapper = document.createElement("div");
+            nameWrapper.style.display = "flex";
+            nameWrapper.style.alignItems = "center";
+            nameWrapper.style.gap = "8px";
+
+            const nameSpan = document.createElement("div");
             nameSpan.className = "contact-name";
             nameSpan.textContent = card.name;
-            nameSpan.title = card.name; // helpful tooltip for elided names
+            
+            nameWrapper.appendChild(nameSpan);
+
+            if (card.phones.length > 0 || card.emails.length > 0) {
+                const tooltipWrapper = document.createElement("div");
+                tooltipWrapper.className = "custom-tooltip-wrapper";
+
+                const infoIcon = document.createElement("span");
+                infoIcon.className = "material-symbols-outlined contact-info-icon";
+                infoIcon.textContent = "info";
+                infoIcon.tabIndex = 0; // touch and keyboard accessibility
+                
+                const tooltipContent = document.createElement("div");
+                tooltipContent.className = "custom-tooltip-content";
+                
+                const detailsArr = [];
+                if (card.phones.length > 0) {
+                    detailsArr.push(`<div style="color:#94a3b8; margin-bottom:2px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Phones</div><div style="line-height:1.5;">${card.phones.join('<br>')}</div>`);
+                }
+                if (card.emails.length > 0) {
+                    detailsArr.push(`<div style="color:#94a3b8; margin-bottom:2px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Emails</div><div style="line-height:1.5;">${card.emails.join('<br>')}</div>`);
+                }
+                
+                tooltipContent.innerHTML = detailsArr.join("<br><br>");
+                
+                tooltipWrapper.appendChild(infoIcon);
+                tooltipWrapper.appendChild(tooltipContent);
+                nameWrapper.appendChild(tooltipWrapper);
+            }
+
+            nameContainer.appendChild(nameWrapper);
 
             const leaderSpan = document.createElement("span");
             leaderSpan.className = "leader";
@@ -261,7 +299,7 @@ function renderAccordion(groups, totalCount, filteredCount, query) {
                 updateView();
             });
 
-            li.appendChild(nameSpan);
+            li.appendChild(nameContainer);
             li.appendChild(leaderSpan);
             li.appendChild(inputContainer);
             li.appendChild(deleteBtn);

@@ -347,8 +347,19 @@ body {
     background-color: var(--surface);
     border-radius: var(--radius-md);
     border: 1px solid var(--border);
-    overflow: hidden;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.accordion-header {
+    border-radius: var(--radius-md);
+}
+
+.accordion-panel[open] .accordion-header {
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.list-container {
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 .accordion-panel:not([open]):hover {
@@ -500,15 +511,87 @@ body {
     animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-.contact-name {
+.contact-name-container {
     min-width: 150px;
     max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.contact-name {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     font-weight: 600;
     font-size: 15px;
     color: var(--text-main);
+}
+
+/* Custom CSS Tooltip */
+.custom-tooltip-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    z-index: 20;
+}
+
+.custom-tooltip-wrapper:hover,
+.custom-tooltip-wrapper:focus-within {
+    z-index: 30; /* Ensure tooltip sits over other rows */
+}
+
+.contact-info-icon {
+    font-size: 18px;
+    color: var(--text-muted);
+    cursor: help;
+    transition: color 0.2s;
+    outline: none;
+}
+
+.custom-tooltip-wrapper:hover .contact-info-icon,
+.contact-info-icon:focus {
+    color: var(--primary);
+}
+
+.custom-tooltip-content {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: #1E293B; /* Slate 800 */
+    color: white;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: normal;
+    min-width: 200px;
+    max-width: 320px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-xl);
+    margin-bottom: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.custom-tooltip-content::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #1E293B transparent transparent transparent;
+}
+
+.custom-tooltip-wrapper:hover .custom-tooltip-content,
+.contact-info-icon:focus + .custom-tooltip-content {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
 
 .leader {
@@ -797,9 +880,8 @@ body {
         display: none; /* Hide leader dots on mobile */
     }
     
-    .contact-name {
+    .contact-name-container {
         max-width: 100%;
-        padding-bottom: 0;
     }
     
     .suffix-input-wrapper {
