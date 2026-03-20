@@ -2,11 +2,13 @@ let cardsGlobal = [];
 let deletedCardsGlobal = [];
 let sortMode = "count"; // "count" | "alphabetical"
 let searchQuery = "";
+let groupSearchQuery = "";
 
 const fileInput = document.getElementById("fileInput");
 const fileNameDisplay = document.getElementById("fileNameDisplay");
 const searchInput = document.getElementById("searchInput");
-const toggleSortBtn = document.getElementById("toggleSort");
+const groupSearchInput = document.getElementById("groupSearchInput");
+const sortRadios = document.querySelectorAll('input[name="sortMode"]');
 const exportBtn = document.getElementById("exportBtn");
 const summaryEl = document.getElementById("summary");
 const accordionEl = document.getElementById("accordion");
@@ -25,35 +27,34 @@ fileInput.addEventListener("change", async (event) => {
 
     // enable controls
     searchInput.disabled = false;
-    toggleSortBtn.disabled = false;
+    groupSearchInput.disabled = false;
     exportBtn.disabled = false;
+    sortRadios.forEach(r => r.disabled = false);
 
     searchQuery = "";
+    groupSearchQuery = "";
     searchInput.value = "";
+    groupSearchInput.value = "";
+    document.getElementById("sortCount").checked = true;
+    sortMode = "count";
 
     updateView();
 });
 
-toggleSortBtn.addEventListener("click", () => {
-    sortMode = sortMode === "count" ? "alphabetical" : "count";
-    
-    // Update button text and icon based on mode
-    const icon = toggleSortBtn.querySelector(".sort-icon");
-    const label = toggleSortBtn.querySelector(".btn-text");
-    
-    if (sortMode === "count") {
-        label.textContent = "Sort Alphabetically";
-        icon.textContent = "sort_by_alpha";
-    } else {
-        label.textContent = "Sort by Count";
-        icon.textContent = "sort"; // A generic sort icon for count sorting
-    }
-    
-    updateView();
+sortRadios.forEach(radio => {
+    radio.addEventListener("change", (e) => {
+        sortMode = e.target.value;
+        updateView();
+    });
 });
 
 searchInput.addEventListener("input", (e) => {
     searchQuery = e.target.value.trim().toLowerCase();
+    updateView();
+});
+
+groupSearchInput.addEventListener("input", (e) => {
+    groupSearchQuery = e.target.value.trim().toLowerCase();
     updateView();
 });
 
@@ -133,13 +134,24 @@ function updateView() {
                 <p>No contacts loaded.</p>
             </div>
         `;
-        summaryEl.textContent = "Load a .vcf file to begin processing.";
+        summaryEl.innerHTML = '<p class="muted">Load a .vcf file to begin processing.</p>';
         if (groupCountBadge) groupCountBadge.style.display = "none";
         return;
     }
 
     const filtered = filterCards(cardsGlobal, searchQuery);
-    const groups = groupBySuffix(filtered, sortMode);
+    let groups = groupBySuffix(filtered, sortMode);
+    
+    if (groupSearchQuery) {
+        const filteredGroups = new Map();
+        for (const [suffix, cards] of groups.entries()) {
+            if (suffix.toLowerCase().includes(groupSearchQuery)) {
+                filteredGroups.set(suffix, cards);
+            }
+        }
+        groups = filteredGroups;
+    }
+
     renderAccordion(groups, cardsGlobal.length, filtered.length, searchQuery);
 }
 
@@ -148,15 +160,18 @@ function renderAccordion(groups, totalCount, filteredCount, query) {
 
     const noSuffixCount = groups.get("No Suffix")?.length || 0;
 
-    let summaryText =
-        `Total: ${totalCount} • Showing: ${filteredCount} • ` +
-        `Groups: ${groups.size} • No suffix: ${noSuffixCount}`;
+    let html = `
+        <span class="chip chip-surface">Total: <span class="chip-val">${totalCount}</span></span>
+        <span class="chip chip-surface">Showing: <span class="chip-val">${filteredCount}</span></span>
+        <span class="chip chip-surface">Groups: <span class="chip-val">${groups.size}</span></span>
+        <span class="chip ${noSuffixCount > 0 ? 'chip-error' : 'chip-surface'}">No Suffix: <span class="chip-val">${noSuffixCount}</span></span>
+    `;
 
     if (query) {
-        summaryText += ` • Search: "${query}"`;
+        html += `<span class="chip chip-primary">Search: <span class="chip-val">"${query}"</span></span>`;
     }
 
-    summaryEl.textContent = summaryText;
+    summaryEl.innerHTML = html;
     
     if (groupCountBadge) {
         groupCountBadge.textContent = groups.size;

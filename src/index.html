@@ -34,14 +34,26 @@
                     <span class="material-symbols-outlined search-icon">search</span>
                     <input type="text" id="searchInput" placeholder="Search contacts..." disabled />
                 </div>
-                <button id="toggleSort" class="btn btn-outlined" disabled>
-                    <span class="material-symbols-outlined sort-icon">sort_by_alpha</span>
-                    <span class="btn-text" id="toggleSortText">Sort Alphabetically</span>
-                </button>
+                
+                <div class="segmented-control" title="Sort Order">
+                    <input type="radio" id="sortCount" name="sortMode" value="count" checked disabled>
+                    <label for="sortCount" class="segment">
+                        <span class="material-symbols-outlined">sort</span>
+                        Count
+                    </label>
+                    
+                    <input type="radio" id="sortAlpha" name="sortMode" value="alphabetical" disabled>
+                    <label for="sortAlpha" class="segment">
+                        <span class="material-symbols-outlined">sort_by_alpha</span>
+                        A-Z
+                    </label>
+                </div>
             </div>
             
             <div class="summary-area">
-                <p id="summary" class="muted">Load a .vcf file to begin processing.</p>
+                <div id="summary" class="summary-chips-container">
+                    <p class="muted">Load a .vcf file to begin processing.</p>
+                </div>
             </div>
         </section>
 
@@ -49,10 +61,16 @@
         <section class="card results-card" id="resultsSection">
             <div class="list-header">
                 <h2 style="display: flex; align-items: center;">Groups <span id="groupCountBadge" class="badge badge-primary" style="display: none; margin-left: 12px; font-size: 14px;">0</span></h2>
-                <button id="exportBtn" class="btn btn-filled fab" disabled title="Export Updated VCF">
-                    <span class="material-symbols-outlined">download</span>
-                    Export
-                </button>
+                <div class="list-header-actions">
+                    <div class="search-field group-search-field">
+                        <span class="material-symbols-outlined search-icon" style="font-size: 20px;">search</span>
+                        <input type="text" id="groupSearchInput" placeholder="Find a group..." disabled />
+                    </div>
+                    <button id="exportBtn" class="btn btn-filled fab" disabled title="Export Updated VCF">
+                        <span class="material-symbols-outlined">download</span>
+                        Export
+                    </button>
+                </div>
             </div>
             <div id="accordion" class="accordion-container">
                 <div class="empty-state">
