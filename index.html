@@ -47,7 +47,12 @@
                 white-space: nowrap;
             }
 
-            button:active {
+            button:disabled {
+                opacity: 0.5;
+                cursor: default;
+            }
+
+            button:active:not(:disabled) {
                 scale: 0.98;
             }
 
@@ -73,12 +78,40 @@
             ul {
                 margin: 0.5rem 0 0.25rem 1.25rem;
                 padding: 0;
-                list-style: disc;
+                list-style: none;
             }
 
             li {
                 margin: 0.1rem 0;
                 font-size: 0.9rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .contact-name {
+                max-width: 300px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .leader {
+                flex: 1;
+                border-bottom: 2px dotted #aaa;
+                margin: 0 0.25rem;
+                position: relative;
+                top: -4px;
+                min-width: 1rem;
+            }
+
+            .suffix-input {
+                min-width: 120px;
+                max-width: 200px;
+                padding: 0.15rem 0.4rem;
+                border-radius: 4px;
+                border: 1px solid #ccc;
+                font-size: 0.85rem;
             }
 
             .badge {
@@ -110,6 +143,7 @@
             <input type="file" id="fileInput" accept=".vcf" />
             <input type="text" id="searchInput" placeholder="Search name, suffix, email, phone, etc." disabled />
             <button id="toggleSort" disabled>Sort by Count</button>
+            <button id="exportBtn" disabled>Export Updated VCF</button>
         </div>
 
         <div id="summary" class="muted">Load a .vcf file to begin.</div>
@@ -123,6 +157,7 @@
             const fileInput = document.getElementById("fileInput");
             const searchInput = document.getElementById("searchInput");
             const toggleSortBtn = document.getElementById("toggleSort");
+            const exportBtn = document.getElementById("exportBtn");
             const summaryEl = document.getElementById("summary");
             const accordionEl = document.getElementById("accordion");
 
@@ -133,9 +168,10 @@
                 const text = await file.text();
                 cardsGlobal = parseVcf(text);
 
-                // Enable controls now that data exists
+                // enable controls
                 searchInput.disabled = false;
                 toggleSortBtn.disabled = false;
+                exportBtn.disabled = false;
 
                 searchQuery = "";
                 searchInput.value = "";
@@ -155,6 +191,23 @@
                 updateView();
             });
 
+            exportBtn.addEventListener("click", () => {
+                if (!cardsGlobal.length) return;
+                const updatedText = buildUpdatedVcf(cardsGlobal);
+
+                const blob = new Blob([updatedText], {
+                    type: "text/vcard;charset=utf-8",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "contacts-updated.vcf";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+
             function updateView () {
                 if (!cardsGlobal.length) {
                     accordionEl.innerHTML = "";
@@ -164,7 +217,6 @@
 
                 const filtered = filterCards(cardsGlobal, searchQuery);
                 const groups = groupBySuffix(filtered);
-
                 renderAccordion(groups, cardsGlobal.length, filtered.length, searchQuery);
             }
 
@@ -221,7 +273,7 @@
                 return cards.filter((card) => {
                     const nameMatch = card.name.toLowerCase().includes(query);
                     const suffixMatch = (card.suffix || "").toLowerCase().includes(query);
-                    const rawMatch = card.rawLower.includes(query); // matches email, phone, etc.
+                    const rawMatch = card.rawLower.includes(query); // email, phone, etc.
 
                     return nameMatch || suffixMatch || rawMatch;
                 });
@@ -252,7 +304,38 @@
                 return new Map(entries);
             }
 
-            // --- Render accordions ---
+            // --- Update N: line with new suffix and build full VCF text ---
+
+            function buildUpdatedVcf (cards) {
+                return cards
+                    .map((card) => updateVcfBlockWithSuffix(card.raw, card.suffix))
+                    .join("\r\n");
+            }
+
+            function updateVcfBlockWithSuffix (block, newSuffix) {
+                const lines = block.split(/\r?\n/);
+                let foundN = false;
+
+                const updatedLines = lines.map((line) => {
+                    if (/^N[:;]/i.test(line)) {
+                        foundN = true;
+                        const [left, ...rest] = line.split(":");
+                        const value = rest.join(":"); // everything after first :
+                        const parts = value.split(";");
+                        while (parts.length < 5) {
+                            parts.push("");
+                        }
+                        parts[4] = newSuffix || "";
+                        return left + ":" + parts.join(";");
+                    }
+                    return line;
+                });
+
+                // If no N: line found, we just leave block as-is.
+                return updatedLines.join("\r\n");
+            }
+
+            // --- Render accordions with editable suffix inputs ---
 
             function renderAccordion (groups, totalCount, filteredCount, query) {
                 accordionEl.innerHTML = "";
@@ -261,7 +344,8 @@
 
                 let summaryText =
                     `Total contacts: ${totalCount} · Showing: ${filteredCount} · ` +
-                    `Groups: ${groups.size} · Without suffix (visible): ${noSuffixCount}`;
+                    `Groups: ${groups.size} · Without suffix (visible): ${noSuffixCount} · ` +
+                    `Edits are local — use "Export Updated VCF" to save.`;
 
                 if (query) {
                     summaryText += ` · Filter: "${query}"`;
@@ -286,7 +370,29 @@
 
                     sortedCards.forEach((card) => {
                         const li = document.createElement("li");
-                        li.textContent = card.name;
+
+                        const nameSpan = document.createElement("span");
+                        nameSpan.className = "contact-name";
+                        nameSpan.textContent = card.name;
+
+                        const leaderSpan = document.createElement("span");
+                        leaderSpan.className = "leader";
+
+                        const suffixInput = document.createElement("input");
+                        suffixInput.className = "suffix-input";
+                        suffixInput.type = "text";
+                        suffixInput.placeholder = "Suffix";
+                        suffixInput.value = card.suffix || "";
+
+                        // On blur (when user leaves the field), update and re-render
+                        suffixInput.addEventListener("change", (e) => {
+                            card.suffix = e.target.value.trim();
+                            updateView();
+                        });
+
+                        li.appendChild(nameSpan);
+                        li.appendChild(leaderSpan);
+                        li.appendChild(suffixInput);
                         list.appendChild(li);
                     });
 
