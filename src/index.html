@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contacts Filter</title>
+    <!-- M3 Fonts and Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <!-- M3 Custom CSS -->
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+    <header class="app-bar">
+        <h1>Contacts Filter</h1>
+    </header>
+    
+    <main class="container">
+        <!-- Controls Card -->
+        <section class="card controls-card">
+            <div class="file-upload-wrapper">
+                <label for="fileInput" class="btn btn-tonal">
+                    <span class="material-symbols-outlined">upload_file</span>
+                    Choose .vcf File
+                </label>
+                <input type="file" id="fileInput" accept=".vcf" hidden />
+                <span id="fileNameDisplay" class="file-name-display">No file selected</span>
+            </div>
+
+            <div class="actions-row">
+                <div class="search-field">
+                    <span class="material-symbols-outlined search-icon">search</span>
+                    <input type="text" id="searchInput" placeholder="Search contacts..." disabled />
+                </div>
+                <button id="toggleSort" class="btn btn-outlined" disabled>
+                    <span class="material-symbols-outlined sort-icon">sort_by_alpha</span>
+                    <span class="btn-text" id="toggleSortText">Sort Alphabetically</span>
+                </button>
+            </div>
+            
+            <div class="summary-area">
+                <p id="summary" class="muted">Load a .vcf file to begin processing.</p>
+            </div>
+        </section>
+
+        <!-- Results Card -->
+        <section class="card results-card" id="resultsSection">
+            <div class="list-header">
+                <h2 style="display: flex; align-items: center;">Groups <span id="groupCountBadge" class="badge badge-primary" style="display: none; margin-left: 12px; font-size: 14px;">0</span></h2>
+                <button id="exportBtn" class="btn btn-filled fab" disabled title="Export Updated VCF">
+                    <span class="material-symbols-outlined">download</span>
+                    Export
+                </button>
+            </div>
+            <div id="accordion" class="accordion-container">
+                <div class="empty-state">
+                    <span class="material-symbols-outlined empty-icon">contacts</span>
+                    <p>Your contacts will appear here</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Export Confirmation Modal -->
+    <dialog id="exportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirm Export</h2>
+                <button id="closeModalBtn" class="icon-btn" title="Close">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>You have chosen to delete <span id="exportCountBadge" class="badge badge-error">0</span> contacts. They will <strong>not</strong> be included in the export:</p>
+                <div class="export-list-container" id="deletedListContainer">
+                    <ul id="exportContactList" class="export-contact-list"></ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelExportBtn" class="btn btn-outlined">Cancel</button>
+                <button id="confirmExportBtn" class="btn btn-filled">
+                    <span class="material-symbols-outlined">check</span> Confirm Export
+                </button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Logic -->
+    <script src="js/vcf.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
